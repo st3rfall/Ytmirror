@@ -11,6 +11,7 @@ Usage:
 import argparse
 import os
 import sys
+import subprocess
 import webbrowser
 from pathlib import Path
 from threading import Thread
@@ -18,6 +19,42 @@ from time import sleep
 
 # Add the current directory to path to import modules
 sys.path.insert(0, str(Path(__file__).parent))
+
+
+def ensure_dependencies():
+    """Ensure all required dependencies are installed."""
+    required_packages = {
+        "yt_dlp": "yt-dlp",
+    }
+    
+    missing_packages = []
+    
+    for import_name, package_name in required_packages.items():
+        try:
+            __import__(import_name)
+        except ImportError:
+            missing_packages.append(package_name)
+    
+    if missing_packages:
+        print("📦 Installing required dependencies...")
+        for package in missing_packages:
+            print(f"   Installing {package}...")
+            try:
+                subprocess.check_call(
+                    [sys.executable, "-m", "pip", "install", "-q", package],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+                print(f"   ✓ {package} installed")
+            except subprocess.CalledProcessError:
+                print(f"   ✗ Failed to install {package}")
+                print(f"   Please install manually: pip install {package}")
+                sys.exit(1)
+        print("✓ All dependencies installed\n")
+
+
+# Ensure dependencies before importing modules
+ensure_dependencies()
 
 import web_server
 import yt_downloader

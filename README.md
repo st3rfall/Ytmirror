@@ -12,23 +12,22 @@ A simple, feature-rich downloader for YouTube and Invidious videos with optional
 
 ## Quick Start
 
-### 1. Install Dependencies
-
-```bash
-pip install yt-dlp
-```
-
-### 2. Easiest Way - Launch with One Command
+### 1. Run the Launcher
 
 ```bash
 python app.py
 ```
 
-This will automatically open the web interface in your browser and start the server.
+That's it! The app will automatically:
+- ✓ Install `yt-dlp` if needed
+- ✓ Open the web interface in your browser
+- ✓ Start the server
 
-### 3. Alternative Methods
+No installation step required!
 
-#### Web Interface with Web Server
+### 2. Alternative Methods
+
+#### Start Web Server Manually
 
 ```bash
 python web_server.py
@@ -40,7 +39,7 @@ Then open http://localhost:8000 in your browser.
 
 Download `index.html` and open it in your browser. If you don't have the web server running, you can still use the CLI instructions provided in the interface.
 
-### 4. Command Line
+### 3. Command Line
 
 Download a YouTube video:
 
@@ -54,7 +53,7 @@ Download from Invidious:
 python yt_downloader.py "https://invidious.io/watch?v=dQw4w9WgXcQ"
 ```
 
-### Advanced CLI Options
+### 4. Advanced CLI Options
 
 #### With Proxy
 
@@ -129,8 +128,10 @@ python web_server.py --host 0.0.0.0 --port 8080
 
 ```bash
 docker run -it -p 8000:8000 -v $(pwd)/downloads:/app/downloads python:3.11 \
-  bash -c "pip install yt-dlp && python web_server.py --host 0.0.0.0"
+  bash -c "cd /app && python app.py --host 0.0.0.0"
 ```
+
+Dependencies are automatically installed on first run.
 
 ## Configuration
 
@@ -169,6 +170,8 @@ pip install pytest
 pytest tests/
 ```
 
+Note: `yt-dlp` will be automatically installed if needed when you run any of the main scripts.
+
 ## Releases
 
 Each release includes an `index.html` file that you can download and use immediately:
@@ -181,9 +184,10 @@ You can also copy this file to any web server (Apache, Nginx, etc.) for shared a
 
 ## Troubleshooting
 
-### yt-dlp not found
+### Dependencies Not Installing
 
-Install it with:
+If `yt-dlp` fails to install automatically, you can install it manually:
+
 ```bash
 pip install yt-dlp
 ```

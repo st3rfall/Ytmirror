@@ -57,8 +57,24 @@ def build_yt_dlp_args(
     
     output_template = str(Path(output_dir) / "%(title)s.%(ext)s")
 
-    base_args = [
-        "yt-dlp",
+    def get_yt_dlp_cmd() -> List[str]:
+        """Return the command to invoke yt-dlp.
+
+        Prefer the Python module if installed, otherwise use a bundled
+        `bin/yt-dlp` executable in the project, or fallback to `yt-dlp`
+        on PATH.
+        """
+        try:
+            import yt_dlp  # type: ignore
+            return [sys.executable, "-m", "yt_dlp"]
+        except Exception:
+            # Check for bundled binary in project `bin/yt-dlp`
+            bundled = Path(__file__).parent / "bin" / "yt-dlp"
+            if bundled.exists():
+                return [str(bundled)]
+            return ["yt-dlp"]
+
+    base_args = get_yt_dlp_cmd() + [
         "--output",
         output_template,
         "--geo-bypass",
@@ -131,13 +147,18 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     proxy = args.proxy or detect_proxy()
     command = build_yt_dlp_args(args.url, output_dir=args.output_dir, proxy=proxy)
 
-    if shutil.which("yt-dlp") is None:
-        print(
-            "yt-dlp is not installed or not available on PATH. "
-            "Install it with: pip install yt-dlp",
-            file=sys.stderr,
-        )
-        return 1
+    # Verify we have some way to run yt-dlp: module, bundled binary, or system
+    try:
+        import yt_dlp  # type: ignore
+    except Exception:
+        bundled = Path(__file__).parent / "bin" / "yt-dlp"
+        if not shutil.which("yt-dlp") and not bundled.exists():
+            print(
+                "yt-dlp is not installed and no bundled binary was found. "
+                "Run `python app.py` to auto-install or install yt-dlp manually: pip install yt-dlp",
+                file=sys.stderr,
+            )
+            return 1
 
     Path(args.output_dir).mkdir(exist_ok=True)
 

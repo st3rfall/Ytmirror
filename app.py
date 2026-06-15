@@ -36,21 +36,40 @@ def ensure_dependencies():
             missing_packages.append(package_name)
     
     if missing_packages:
-        print("📦 Installing required dependencies...")
+        print("📦 Installing required dependencies (if possible)...")
         for package in missing_packages:
-            print(f"   Installing {package}...")
+            print(f"   Installing {package} via pip...")
             try:
                 subprocess.check_call(
-                    [sys.executable, "-m", "pip", "install", "-q", package],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL
+                    [sys.executable, "-m", "pip", "install", "-q", package]
                 )
                 print(f"   ✓ {package} installed")
             except subprocess.CalledProcessError:
-                print(f"   ✗ Failed to install {package}")
-                print(f"   Please install manually: pip install {package}")
-                sys.exit(1)
-        print("✓ All dependencies installed\n")
+                print(f"   ✗ Failed to install {package} via pip")
+                print("   Will attempt to download standalone yt-dlp binary instead")
+                # Attempt to download standalone binary for yt-dlp
+                if package == "yt-dlp":
+                    try:
+                        download_dir = Path(__file__).parent / "bin"
+                        download_dir.mkdir(exist_ok=True)
+                        binary_path = download_dir / "yt-dlp"
+                        if not binary_path.exists():
+                            import urllib.request
+
+                            url = (
+                                "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp"
+                            )
+                            print(f"   Downloading yt-dlp binary from {url}...")
+                            urllib.request.urlretrieve(url, str(binary_path))
+                            binary_path.chmod(0o755)
+                            print(f"   ✓ yt-dlp binary downloaded to {binary_path}")
+                        else:
+                            print(f"   ✓ yt-dlp binary already present at {binary_path}")
+                    except Exception as e:
+                        print(f"   ✗ Failed to download yt-dlp binary: {e}")
+                        print(f"   Please install manually: pip install {package}")
+                        sys.exit(1)
+        print("✓ Dependency step completed\n")
 
 
 # Ensure dependencies before importing modules

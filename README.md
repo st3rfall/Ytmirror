@@ -18,9 +18,17 @@ A simple, feature-rich downloader for YouTube and Invidious videos with optional
 pip install yt-dlp
 ```
 
-### 2. Web Interface (Recommended)
+### 2. Easiest Way - Launch with One Command
 
-#### Option A: Start the Web Server
+```bash
+python app.py
+```
+
+This will automatically open the web interface in your browser and start the server.
+
+### 3. Alternative Methods
+
+#### Web Interface with Web Server
 
 ```bash
 python web_server.py
@@ -28,11 +36,11 @@ python web_server.py
 
 Then open http://localhost:8000 in your browser.
 
-#### Option B: Use Standalone HTML
+#### Use Standalone HTML
 
 Download `index.html` and open it in your browser. If you don't have the web server running, you can still use the CLI instructions provided in the interface.
 
-### 3. Command Line
+### 4. Command Line
 
 Download a YouTube video:
 
@@ -46,7 +54,7 @@ Download from Invidious:
 python yt_downloader.py "https://invidious.io/watch?v=dQw4w9WgXcQ"
 ```
 
-### Advanced Options
+### Advanced CLI Options
 
 #### With Proxy
 
@@ -71,6 +79,27 @@ python yt_downloader.py "https://www.youtube.com/watch?v=..." --output-dir "my_v
 
 ```bash
 python yt_downloader.py --list-invidious
+```
+
+## Launcher Script
+
+Use the `app.py` launcher for the easiest experience:
+
+```bash
+# Open web interface in browser (recommended)
+python app.py
+
+# Use custom port
+python app.py --port 9000
+
+# Command-line mode
+python app.py --cli "https://www.youtube.com/watch?v=xxx"
+
+# List Invidious instances
+python app.py --list-invidious
+
+# Start server without opening browser
+python app.py --no-browser
 ```
 
 ## Invidious Instances

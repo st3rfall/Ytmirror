@@ -25,6 +25,20 @@ That's it! The app will automatically:
 
 No installation step required!
 
+### No-yt-dlp mode
+
+If you prefer not to install `yt-dlp` at all, Ytmirror can attempt a pure Invidious-based
+download fallback that does not require `yt-dlp` or any external Python packages.
+
+- The launcher will first try to use `yt-dlp` (module or binary).
+- If not available, the tool will query public Invidious instances for direct media URLs
+  and download the video using only Python's standard library.
+- This mode works only if the video is available via Invidious instances. If all instances
+  fail, the tool will fall back to prompting for `yt-dlp` installation.
+
+To use this mode, simply run the same commands as before; the fallback is automatic when
+`yt-dlp` is not present.
+
 ### 2. Alternative Methods
 
 #### Start Web Server Manually

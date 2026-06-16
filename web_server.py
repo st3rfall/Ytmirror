@@ -24,8 +24,17 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Get the directory where this script is located
-SCRIPT_DIR = Path(__file__).parent
+SCRIPT_DIR = Path(__file__).resolve().parent
 HTML_FILE = SCRIPT_DIR / "index.html"
+
+if not HTML_FILE.exists():
+    # Fallback to current working directory if running in an unusual environment
+    fallback = Path.cwd() / "index.html"
+    if fallback.exists():
+        HTML_FILE = fallback
+    else:
+        logger.warning("Expected HTML file not found at %s", HTML_FILE)
+        logger.warning("Also checked current working directory: %s", fallback)
 
 
 class DownloadHandler(BaseHTTPRequestHandler):

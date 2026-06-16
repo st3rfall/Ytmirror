@@ -88,6 +88,22 @@ python yt_downloader.py "https://www.youtube.com/watch?v=..."
 python yt_downloader.py "https://www.youtube.com/watch?v=..." --output-dir "my_videos"
 ```
 
+#### School-Friendly Mode
+
+```bash
+python yt_downloader.py --school-mode "https://www.youtube.com/watch?v=..."
+```
+
+This forces the tool to try the direct Invidious fallback first and uses proxy settings from the environment if available.
+
+#### Easy School Launcher
+
+```bash
+python school.py "https://www.youtube.com/watch?v=..."
+```
+
+This wrapper automatically enables school-friendly mode and keeps the command simple.
+
 #### List Available Invidious Instances
 
 ```bash
@@ -184,7 +200,21 @@ pip install pytest
 pytest tests/
 ```
 
-Note: `yt-dlp` will be automatically installed if needed when you run any of the main scripts.
+## Node.js JS Downloader
+
+A JavaScript fallback is available through `yt-dlp.js`.
+
+- It does not require the Python `yt_dlp` package.
+- It uses Node.js and public Invidious instances to download videos.
+- The Python wrapper will automatically use `node yt-dlp.js` if Node is installed and `yt-dlp` is unavailable.
+
+Use it directly with:
+
+```bash
+node yt-dlp.js "https://www.youtube.com/watch?v=xxx"
+```
+
+If you want the JS fallback to run automatically, ensure Node.js is on your PATH.
 
 ## Releases
 

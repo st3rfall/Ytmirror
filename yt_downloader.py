@@ -62,10 +62,11 @@ def build_yt_dlp_args(
     output_template = str(Path(output_dir) / "%(title)s.%(ext)s")
 
     def get_yt_dlp_cmd() -> List[str]:
-        """Return the command to invoke yt-dlp.
+        """Return the command to invoke yt-dlp or the JS fallback.
 
         Prefer bundled executable if present, otherwise use the Python module,
-        and finally fallback to `yt-dlp` on PATH.
+        then fallback to the bundled JS downloader `yt-dlp.js`, and finally
+        system `yt-dlp` on PATH.
         """
         bundled_dir = Path(__file__).parent / "bin"
         is_windows = sys.platform.startswith("win")
@@ -80,6 +81,9 @@ def build_yt_dlp_args(
             import yt_dlp  # type: ignore
             return [sys.executable, "-m", "yt_dlp"]
         except Exception:
+            js_wrapper = Path(__file__).parent / "yt-dlp.js"
+            if js_wrapper.exists() and shutil.which("node"):
+                return [shutil.which("node"), str(js_wrapper)]
             return ["yt-dlp"]
 
     base_args = get_yt_dlp_cmd() + [
@@ -134,11 +138,22 @@ def _extract_video_id(url: str) -> Optional[str]:
     return None
 
 
-def _fetch_invidious_json(instance: str, video_id: str, timeout: int = 10) -> Optional[dict]:
+def _build_opener(proxy: Optional[str] = None):
+    handlers = []
+    if proxy:
+        handlers.append(urllib.request.ProxyHandler({
+            "http": proxy,
+            "https": proxy,
+        }))
+    return urllib.request.build_opener(*handlers)
+
+
+def _fetch_invidious_json(instance: str, video_id: str, proxy: Optional[str] = None, timeout: int = 10) -> Optional[dict]:
     """Fetch `/api/v1/videos/{id}` JSON from an Invidious instance."""
     api_url = instance.rstrip("/") + f"/api/v1/videos/{video_id}"
     try:
-        with urllib.request.urlopen(api_url, timeout=timeout) as resp:
+        opener = _build_opener(proxy)
+        with opener.open(api_url, timeout=timeout) as resp:
             if resp.status != 200:
                 return None
             data = resp.read()
@@ -172,7 +187,12 @@ def _choose_format(formats: list) -> Optional[dict]:
     return best[1] if best else None
 
 
-def download_via_invidious(url: str, output_dir: str = DEFAULT_OUTPUT_DIR, proxy: Optional[str] = None) -> int:
+def download_via_invidious(
+    url: str,
+    output_dir: str = DEFAULT_OUTPUT_DIR,
+    proxy: Optional[str] = None,
+    instance: Optional[str] = None,
+) -> int:
     """Attempt to download a video using Invidious instances directly.
 
     Returns 0 on success, non-zero on failure.
@@ -182,8 +202,11 @@ def download_via_invidious(url: str, output_dir: str = DEFAULT_OUTPUT_DIR, proxy
         print("Could not determine video id for Invidious fallback", file=sys.stderr)
         return 2
 
-    for instance in INVIDIOUS_INSTANCES:
-        info = _fetch_invidious_json(instance, video_id)
+    instances = [instance] if instance else INVIDIOUS_INSTANCES
+    for instance_url in instances:
+        if not instance_url:
+            continue
+        info = _fetch_invidious_json(instance_url, video_id, proxy=proxy)
         if not info:
             continue
         formats = info.get("formats") or info.get("adaptive_formats") or []
@@ -200,13 +223,14 @@ def download_via_invidious(url: str, output_dir: str = DEFAULT_OUTPUT_DIR, proxy
         Path(output_dir).mkdir(exist_ok=True)
 
         try:
+            opener = _build_opener(proxy)
             req = urllib.request.Request(media_url, headers={"User-Agent": "ytmirror/1.0"})
-            with urllib.request.urlopen(req) as resp, open(out_path, "wb") as outf:
+            with opener.open(req) as resp, open(out_path, "wb") as outf:
                 shutil.copyfileobj(resp, outf)
-            print(f"Downloaded via Invidious {instance}: {out_path}")
+            print(f"Downloaded via Invidious {instance_url}: {out_path}")
             return 0
         except Exception as e:
-            print(f"Failed to download from {instance}: {e}")
+            print(f"Failed to download from {instance_url}: {e}")
             continue
 
     print("Invidious fallback failed for all instances", file=sys.stderr)
@@ -227,6 +251,21 @@ def parse_args(argv: Optional[Iterable[str]] = None) -> argparse.Namespace:
         "--proxy",
         default=None,
         help="Proxy URL such as http://user:pass@host:port or socks5://host:port",
+    )
+    parser.add_argument(
+        "--use-invidious",
+        action="store_true",
+        help="Force Invidious-only download fallback when yt-dlp is unavailable",
+    )
+    parser.add_argument(
+        "--school-mode",
+        action="store_true",
+        help="Use school-friendly download mode with proxy and Invidious fallbacks",
+    )
+    parser.add_argument(
+        "--invidious-instance",
+        default=None,
+        help="Use a specific Invidious instance for direct download fallback",
     )
     parser.add_argument(
         "--list-invidious",
@@ -264,8 +303,25 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     # also allow alternate name
     bundled_alt = bundled_dir / ("yt-dlp" if is_windows else "yt-dlp.exe")
 
+    js_wrapper = Path(__file__).parent / "yt-dlp.js"
+    has_node = shutil.which("node") is not None and js_wrapper.exists()
+
+    if args.school_mode or args.use_invidious:
+        print("School/Invidious mode enabled; attempting direct Invidious download fallback first...")
+        direct_status = download_via_invidious(
+            args.url,
+            output_dir=args.output_dir,
+            proxy=proxy,
+            instance=args.invidious_instance,
+        )
+        if direct_status == 0:
+            return 0
+        if args.use_invidious and not args.school_mode:
+            return direct_status
+        print("Direct Invidious fallback failed; trying the normal yt-dlp/Node pipeline...")
+
     # If any yt-dlp method is available, run it
-    if has_module or shutil.which("yt-dlp") or bundled.exists() or bundled_alt.exists():
+    if has_module or shutil.which("yt-dlp") or bundled.exists() or bundled_alt.exists() or has_node:
         Path(args.output_dir).mkdir(exist_ok=True)
         try:
             subprocess.run(command, check=True)
@@ -276,7 +332,12 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
 
     # As a last resort, try Invidious-only fallback (no yt-dlp required)
     print("yt-dlp not available; attempting Invidious-only download fallback...")
-    return download_via_invidious(args.url, output_dir=args.output_dir, proxy=proxy)
+    return download_via_invidious(
+        args.url,
+        output_dir=args.output_dir,
+        proxy=proxy,
+        instance=args.invidious_instance,
+    )
 
 
 if __name__ == "__main__":

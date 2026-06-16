@@ -9,20 +9,38 @@ Usage:
 """
 
 import argparse
+import hashlib
 import os
 import sys
 import subprocess
+import urllib.request
 import webbrowser
 from pathlib import Path
 from threading import Thread
 from time import sleep
+from typing import Optional
 
 # Add the current directory to path to import modules
 sys.path.insert(0, str(Path(__file__).parent))
 
 
+def read_checksum_file(binary_path: Path) -> Optional[str]:
+    checksum_file = binary_path.with_suffix(binary_path.suffix + ".sha256")
+    if checksum_file.exists():
+        return checksum_file.read_text().strip().split()[0]
+    return None
+
+
+def verify_binary(binary_path: Path) -> bool:
+    expected = read_checksum_file(binary_path)
+    if not expected:
+        return False
+    sha256 = hashlib.sha256(binary_path.read_bytes()).hexdigest()
+    return sha256 == expected
+
+
 def ensure_dependencies():
-    """Ensure all required dependencies are installed."""
+    """Ensure all required dependencies are installed or vendored."""
     required_packages = {
         "yt_dlp": "yt-dlp",
     }
@@ -38,43 +56,38 @@ def ensure_dependencies():
     if missing_packages:
         print("📦 Installing required dependencies (if possible)...")
         for package in missing_packages:
-            print(f"   Installing {package} via pip...")
-            try:
-                subprocess.check_call(
-                    [sys.executable, "-m", "pip", "install", "-q", package]
-                )
-                print(f"   ✓ {package} installed")
-            except subprocess.CalledProcessError:
-                print(f"   ✗ Failed to install {package} via pip")
-                print("   Will attempt to download standalone yt-dlp binary instead")
-                # Attempt to download standalone binary for yt-dlp
-                if package == "yt-dlp":
-                    try:
-                        download_dir = Path(__file__).parent / "bin"
-                        download_dir.mkdir(exist_ok=True)
-                        is_windows = sys.platform.startswith("win")
-                        bin_name = "yt-dlp.exe" if is_windows else "yt-dlp"
-                        binary_path = download_dir / bin_name
-                        if not binary_path.exists():
-                            import urllib.request
-
-                            url = (
-                                f"https://github.com/yt-dlp/yt-dlp/releases/latest/download/{bin_name}"
-                            )
-                            print(f"   Downloading {bin_name} binary from {url}...")
-                            urllib.request.urlretrieve(url, str(binary_path))
-                            if not is_windows:
-                                try:
-                                    binary_path.chmod(0o755)
-                                except Exception:
-                                    pass
-                            print(f"   ✓ {bin_name} binary downloaded to {binary_path}")
-                        else:
-                            print(f"   ✓ {bin_name} binary already present at {binary_path}")
-                    except Exception as e:
-                        print(f"   ✗ Failed to download yt-dlp binary: {e}")
-                        print(f"   Please install manually: pip install {package}")
-                        sys.exit(1)
+            if package == "yt-dlp":
+                download_dir = Path(__file__).parent / "bin"
+                download_dir.mkdir(exist_ok=True)
+                is_windows = sys.platform.startswith("win")
+                bin_name = "yt-dlp.exe" if is_windows else "yt-dlp"
+                binary_path = download_dir / bin_name
+                checksum_path = binary_path.with_suffix(binary_path.suffix + ".sha256")
+                if binary_path.exists() and verify_binary(binary_path):
+                    print(f"   ✓ Bundled {bin_name} already present and verified")
+                    continue
+                print(f"   Bundled {bin_name} missing or invalid, attempting download...")
+                try:
+                    url = (
+                        f"https://github.com/yt-dlp/yt-dlp/releases/latest/download/{bin_name}"
+                    )
+                    print(f"   Downloading {bin_name} binary from {url}...")
+                    urllib.request.urlretrieve(url, str(binary_path))
+                    if not is_windows:
+                        try:
+                            binary_path.chmod(0o755)
+                        except Exception:
+                            pass
+                    print(f"   ✓ {bin_name} binary downloaded to {binary_path}")
+                    # If local checksum exists, verify downloaded file
+                    if checksum_path.exists() and not verify_binary(binary_path):
+                        raise RuntimeError("Downloaded binary checksum mismatch")
+                except Exception as e:
+                    print(f"   ✗ Failed to ensure yt-dlp binary: {e}")
+                    print("   yt-dlp module missing and bundled binary could not be verified or downloaded.")
+                    print("   The tool can still attempt Invidious-only downloads, but yt-dlp features may be limited.")
+            else:
+                print(f"   Dependency {package} missing, but no fallback is configured.")
         print("✓ Dependency step completed\n")
 
 

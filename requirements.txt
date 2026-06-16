@@ -1,1 +1,2 @@
-yt-dlp>=2023.12.30
+# yt-dlp is vendored in bin/ and does not need to be installed.
+# This file is retained for reference only.

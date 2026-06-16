@@ -64,25 +64,22 @@ def build_yt_dlp_args(
     def get_yt_dlp_cmd() -> List[str]:
         """Return the command to invoke yt-dlp.
 
-        Prefer the Python module if installed, otherwise use a bundled
-        `bin/yt-dlp` executable in the project, or fallback to `yt-dlp`
-        on PATH.
+        Prefer bundled executable if present, otherwise use the Python module,
+        and finally fallback to `yt-dlp` on PATH.
         """
+        bundled_dir = Path(__file__).parent / "bin"
+        is_windows = sys.platform.startswith("win")
+        bin_name = "yt-dlp.exe" if is_windows else "yt-dlp"
+        bundled = bundled_dir / bin_name
+        if bundled.exists():
+            return [str(bundled)]
+        alt = bundled_dir / ("yt-dlp.exe" if not is_windows else "yt-dlp")
+        if alt.exists():
+            return [str(alt)]
         try:
             import yt_dlp  # type: ignore
             return [sys.executable, "-m", "yt_dlp"]
         except Exception:
-            # Check for bundled binary in project `bin/yt-dlp` or `bin/yt-dlp.exe`
-            bundled_dir = Path(__file__).parent / "bin"
-            is_windows = sys.platform.startswith("win")
-            bin_name = "yt-dlp.exe" if is_windows else "yt-dlp"
-            bundled = bundled_dir / bin_name
-            if bundled.exists():
-                return [str(bundled)]
-            # Try the alternate name as a fallback
-            alt = bundled_dir / ("yt-dlp.exe" if not is_windows else "yt-dlp")
-            if alt.exists():
-                return [str(alt)]
             return ["yt-dlp"]
 
     base_args = get_yt_dlp_cmd() + [

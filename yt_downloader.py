@@ -72,10 +72,17 @@ def build_yt_dlp_args(
             import yt_dlp  # type: ignore
             return [sys.executable, "-m", "yt_dlp"]
         except Exception:
-            # Check for bundled binary in project `bin/yt-dlp`
-            bundled = Path(__file__).parent / "bin" / "yt-dlp"
+            # Check for bundled binary in project `bin/yt-dlp` or `bin/yt-dlp.exe`
+            bundled_dir = Path(__file__).parent / "bin"
+            is_windows = sys.platform.startswith("win")
+            bin_name = "yt-dlp.exe" if is_windows else "yt-dlp"
+            bundled = bundled_dir / bin_name
             if bundled.exists():
                 return [str(bundled)]
+            # Try the alternate name as a fallback
+            alt = bundled_dir / ("yt-dlp.exe" if not is_windows else "yt-dlp")
+            if alt.exists():
+                return [str(alt)]
             return ["yt-dlp"]
 
     base_args = get_yt_dlp_cmd() + [
@@ -254,10 +261,14 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     except Exception:
         has_module = False
 
-    bundled = Path(__file__).parent / "bin" / "yt-dlp"
+    bundled_dir = Path(__file__).parent / "bin"
+    is_windows = sys.platform.startswith("win")
+    bundled = bundled_dir / ("yt-dlp.exe" if is_windows else "yt-dlp")
+    # also allow alternate name
+    bundled_alt = bundled_dir / ("yt-dlp" if is_windows else "yt-dlp.exe")
 
     # If any yt-dlp method is available, run it
-    if has_module or shutil.which("yt-dlp") or bundled.exists():
+    if has_module or shutil.which("yt-dlp") or bundled.exists() or bundled_alt.exists():
         Path(args.output_dir).mkdir(exist_ok=True)
         try:
             subprocess.run(command, check=True)

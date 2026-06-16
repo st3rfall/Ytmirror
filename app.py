@@ -52,19 +52,25 @@ def ensure_dependencies():
                     try:
                         download_dir = Path(__file__).parent / "bin"
                         download_dir.mkdir(exist_ok=True)
-                        binary_path = download_dir / "yt-dlp"
+                        is_windows = sys.platform.startswith("win")
+                        bin_name = "yt-dlp.exe" if is_windows else "yt-dlp"
+                        binary_path = download_dir / bin_name
                         if not binary_path.exists():
                             import urllib.request
 
                             url = (
-                                "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp"
+                                f"https://github.com/yt-dlp/yt-dlp/releases/latest/download/{bin_name}"
                             )
-                            print(f"   Downloading yt-dlp binary from {url}...")
+                            print(f"   Downloading {bin_name} binary from {url}...")
                             urllib.request.urlretrieve(url, str(binary_path))
-                            binary_path.chmod(0o755)
-                            print(f"   ✓ yt-dlp binary downloaded to {binary_path}")
+                            if not is_windows:
+                                try:
+                                    binary_path.chmod(0o755)
+                                except Exception:
+                                    pass
+                            print(f"   ✓ {bin_name} binary downloaded to {binary_path}")
                         else:
-                            print(f"   ✓ yt-dlp binary already present at {binary_path}")
+                            print(f"   ✓ {bin_name} binary already present at {binary_path}")
                     except Exception as e:
                         print(f"   ✗ Failed to download yt-dlp binary: {e}")
                         print(f"   Please install manually: pip install {package}")
